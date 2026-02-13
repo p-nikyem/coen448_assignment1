@@ -22,14 +22,31 @@ public class AsyncProcessor {
                 new IllegalArgumentException("services and messages must have the same size"));
         }
 
+        CompletableFuture<String> result = new CompletableFuture<>();
+
         List<CompletableFuture<String>> futures = IntStream.range(0, services.size())
             .mapToObj(i -> services.get(i).retrieveAsync(messages.get(i)))
             .collect(Collectors.toList());
 
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-            .thenApply(v -> futures.stream()
-                .map(CompletableFuture::join)
-                .collect(Collectors.joining(" ")));
+        // Fail fast: complete result exceptionally as soon as ANY future fails
+        for (CompletableFuture<String> future : futures) {
+            future.exceptionally(ex -> {
+                result.completeExceptionally(ex);
+                return null;
+            });
+        }
+
+        // Complete normally only when ALL futures succeed
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .thenAccept(v -> {
+                if (!result.isDone()) {
+                    result.complete(futures.stream()
+                        .map(CompletableFuture::join)
+                        .collect(Collectors.joining(" ")));
+                }
+            });
+
+        return result;
     }
 
     public CompletableFuture<String> processAsync(List<Microservice> microservices, String message) {
