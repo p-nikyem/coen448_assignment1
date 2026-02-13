@@ -49,6 +49,46 @@ public class AsyncProcessor {
         return result;
     }
 
+    public CompletableFuture<List<String>> processAsyncFailPartial(
+            List<Microservice> services,
+            List<String> messages) {
+
+        // Fail-partial policy: never fail the aggregate future.
+        if (services == null || messages == null || services.size() != messages.size()) {
+            return CompletableFuture.completedFuture(Collections.emptyList());
+        }
+
+        List<CompletableFuture<String>> futures = IntStream.range(0, services.size())
+            .mapToObj(i -> {
+                Microservice service = services.get(i);
+                String message = messages.get(i);
+
+                if (service == null) {
+                    return CompletableFuture.<String>completedFuture(null);
+                }
+
+                try {
+                    CompletableFuture<String> future = service.retrieveAsync(message);
+                    if (future == null) {
+                        return CompletableFuture.<String>completedFuture(null);
+                    }
+
+                    // Per-service failures are suppressed and omitted from final results.
+                    return future.handle((value, ex) -> ex == null ? value : null);
+                } catch (RuntimeException ex) {
+                    return CompletableFuture.<String>completedFuture(null);
+                }
+            })
+            .collect(Collectors.toList());
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .thenApply(v -> futures.stream()
+                .map(f -> f.getNow(null))
+                .filter(value -> value != null)
+                .collect(Collectors.toList()))
+            .exceptionally(ex -> Collections.emptyList());
+    }
+
     public CompletableFuture<String> processAsync(List<Microservice> microservices, String message) {
     	
         List<CompletableFuture<String>> futures = microservices.stream()
