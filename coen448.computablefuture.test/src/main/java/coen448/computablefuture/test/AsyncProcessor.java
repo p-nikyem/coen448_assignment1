@@ -5,9 +5,50 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class AsyncProcessor {
 	
+    public CompletableFuture<String> processAsyncFailFast(
+            List<Microservice> services,
+            List<String> messages) {
+
+        if (services == null || messages == null) {
+            return CompletableFuture.failedFuture(
+                new IllegalArgumentException("services and messages must not be null"));
+        }
+        if (services.size() != messages.size()) {
+            return CompletableFuture.failedFuture(
+                new IllegalArgumentException("services and messages must have the same size"));
+        }
+
+        CompletableFuture<String> result = new CompletableFuture<>();
+
+        List<CompletableFuture<String>> futures = IntStream.range(0, services.size())
+            .mapToObj(i -> services.get(i).retrieveAsync(messages.get(i)))
+            .collect(Collectors.toList());
+
+        // Fail fast: complete result exceptionally as soon as ANY future fails
+        for (CompletableFuture<String> future : futures) {
+            future.exceptionally(ex -> {
+                result.completeExceptionally(ex);
+                return null;
+            });
+        }
+
+        // Complete normally only when ALL futures succeed
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .thenAccept(v -> {
+                if (!result.isDone()) {
+                    result.complete(futures.stream()
+                        .map(CompletableFuture::join)
+                        .collect(Collectors.joining(" ")));
+                }
+            });
+
+        return result;
+    }
+
     public CompletableFuture<String> processAsync(List<Microservice> microservices, String message) {
     	
         List<CompletableFuture<String>> futures = microservices.stream()
