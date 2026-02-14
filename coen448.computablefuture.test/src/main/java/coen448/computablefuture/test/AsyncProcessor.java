@@ -98,6 +98,69 @@ public class AsyncProcessor {
             .exceptionally(ex -> Collections.emptyList());
     }
 
+    /**
+     * Fail-soft policy:
+     * 1) every service is invoked concurrently,
+     * 2) every failure is converted to a fallback value,
+     * 3) the returned future completes normally.
+     *
+     * Risk note: this improves availability but can mask real production failures.
+     * Hidden failures can make diagnosis harder and may propagate degraded data.
+     */
+    public CompletableFuture<String> processAsyncFailSoft(
+            List<Microservice> services,
+            List<String> messages,
+            String fallbackValue) {
+
+        final String safeFallback = fallbackValue == null ? "" : fallbackValue;
+
+        // Always complete normally, even for invalid inputs.
+        if (services == null || services.isEmpty()) {
+            return CompletableFuture.completedFuture("");
+        }
+
+        List<CompletableFuture<String>> futures = IntStream.range(0, services.size())
+            .mapToObj(i -> {
+                Microservice service = services.get(i);
+                String message = (messages != null && i < messages.size()) ? messages.get(i) : null;
+
+                if (service == null) {
+                    return CompletableFuture.completedFuture(safeFallback);
+                }
+
+                if (message == null) {
+                    return CompletableFuture.completedFuture(safeFallback);
+                }
+                try {
+                    CompletableFuture<String> future = service.retrieveAsync(message);
+                    if (future == null) {
+                        return CompletableFuture.completedFuture(safeFallback);
+                    }
+
+                    // Any per-service failure or null output becomes fallback.
+                    return future.handle((value, ex) -> {
+                        if (ex != null || value == null) {
+                            return safeFallback;
+                        }
+                        return value;
+                    });
+                } catch (RuntimeException ex) {
+                    return CompletableFuture.completedFuture(safeFallback);
+                }
+            })
+            .collect(Collectors.toList());
+
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .thenApply(v -> futures.stream()
+                .map(f -> f.getNow(safeFallback))
+                .map(value -> value == null ? safeFallback : value)
+                .collect(Collectors.joining(" ")))
+            // Final safety net: keep aggregate completion normal.
+            .exceptionally(ex -> IntStream.range(0, services.size())
+                .mapToObj(i -> safeFallback)
+                .collect(Collectors.joining(" ")));
+    }
+
     public CompletableFuture<String> processAsync(List<Microservice> microservices, String message) {
     	
         List<CompletableFuture<String>> futures = microservices.stream()
