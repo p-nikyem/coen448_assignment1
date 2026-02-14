@@ -128,6 +128,9 @@ public class AsyncProcessor {
                     return CompletableFuture.completedFuture(safeFallback);
                 }
 
+                if (message == null) {
+                    return CompletableFuture.completedFuture(safeFallback);
+                }
                 try {
                     CompletableFuture<String> future = service.retrieveAsync(message);
                     if (future == null) {
