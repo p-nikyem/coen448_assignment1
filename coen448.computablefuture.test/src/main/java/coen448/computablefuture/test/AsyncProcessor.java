@@ -63,7 +63,7 @@ public class AsyncProcessor {
                 Microservice service = services.get(i);
                 String message = messages.get(i);
 
-                if (service == null) {
+                if (service == null || message == null) {
                     return CompletableFuture.<String>completedFuture(null);
                 }
 
