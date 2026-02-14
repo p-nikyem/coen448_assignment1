@@ -53,11 +53,20 @@ public class AsyncProcessor {
             List<Microservice> services,
             List<String> messages) {
 
-        // Fail-partial policy: never fail the aggregate future.
-        if (services == null || messages == null || services.size() != messages.size()) {
-            return CompletableFuture.completedFuture(Collections.emptyList());
+        // Input validation: invalid arguments are treated as programmer errors.
+        if (services == null || messages == null) {
+            CompletableFuture<List<String>> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalArgumentException("services and messages must not be null"));
+            return failed;
         }
 
+        if (services.size() != messages.size()) {
+            CompletableFuture<List<String>> failed = new CompletableFuture<>();
+            failed.completeExceptionally(new IllegalArgumentException("services and messages must have the same size"));
+            return failed;
+        }
+
+        // Fail-partial policy: never fail the aggregate future due to per-service failures.
         List<CompletableFuture<String>> futures = IntStream.range(0, services.size())
             .mapToObj(i -> {
                 Microservice service = services.get(i);
