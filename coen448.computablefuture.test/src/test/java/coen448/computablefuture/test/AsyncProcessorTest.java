@@ -465,8 +465,8 @@ public class AsyncProcessorTest {
             String result = processor.processAsyncFailSoft(services, null, FALLBACK)
                 .get(1, TimeUnit.SECONDS);
 
-            // Should complete normally with fallback
-            assertNotNull(result);
+            // Should complete normally with fallback and return the fallback value
+            assertEquals(FALLBACK, result);
         }
 
         @Test
