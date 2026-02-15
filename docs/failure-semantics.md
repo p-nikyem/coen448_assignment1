@@ -27,7 +27,7 @@ If fraud check fails, returning a partial "almost approved" result is dangerous.
 
 ## 2. Fail-Partial (Best-Effort Policy)
 ### Definition
-Each service failure is handled locally. Successful service outputs are returned; failed ones are omitted (or marked explicitly).
+Each service failure is handled locally. In this project, `processAsyncFailPartial` returns only successful service outputs and omits failed ones from the aggregate list. Because failed calls are simply omitted (not explicitly marked), consumers cannot tell which specific services failed unless the processor also returns additional metadata (for example, per-service status records or a separate error list).
 
 ### When It Is Appropriate
 - Dashboards combining data from many independent sources.
