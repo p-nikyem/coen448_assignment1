@@ -497,7 +497,7 @@ public class AsyncProcessorTest {
             String result = processor.processAsyncFailSoft(services, messages, FALLBACK)
                 .get(2, TimeUnit.SECONDS);
 
-            assertNotNull(result);
+            assertEquals("Hello FALLBACK FALLBACK", result);
         }
 
         @Test
