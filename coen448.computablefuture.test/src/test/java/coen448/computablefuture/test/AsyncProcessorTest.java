@@ -104,20 +104,6 @@ public class AsyncProcessorTest {
         }
     }
 
-    /**
-     * Service that throws synchronously during retrieveAsync invocation.
-     */
-    static class SynchronouslyFailingService extends Microservice {
-        SynchronouslyFailingService(String serviceId) {
-            super(serviceId);
-        }
-
-        @Override
-        public CompletableFuture<String> retrieveAsync(String message) {
-            throw new RuntimeException("Synchronous failure in " + message);
-        }
-    }
-
     // =====================================================================
     // FAIL-FAST TESTS
     // =====================================================================
