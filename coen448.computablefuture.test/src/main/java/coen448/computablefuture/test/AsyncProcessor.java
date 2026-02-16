@@ -57,13 +57,13 @@ public class AsyncProcessor {
         if (services == null || messages == null) {
             CompletableFuture<List<String>> failed = new CompletableFuture<>();
             failed.completeExceptionally(new IllegalArgumentException("services and messages must not be null"));
-            return failed;
+            return failed.exceptionally(ex -> Collections.emptyList());
         }
 
         if (services.size() != messages.size()) {
             CompletableFuture<List<String>> failed = new CompletableFuture<>();
             failed.completeExceptionally(new IllegalArgumentException("services and messages must have the same size"));
-            return failed;
+            return failed.exceptionally(ex -> Collections.emptyList());
         }
 
         // Fail-partial policy: never fail the aggregate future due to per-service failures.
